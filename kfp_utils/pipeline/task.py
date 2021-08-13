@@ -125,6 +125,9 @@ class TaskMeta(type):
                 re.sub(r'Op$', '', cls.__name__),
             ).lower()
 
+        if cls.command_name is None:
+            cls.command_name = cls.name
+
 
 class Task(metaclass=TaskMeta):
 
@@ -133,6 +136,7 @@ class Task(metaclass=TaskMeta):
 
     name: Optional[str] = None
     description: Optional[str] = None
+    command_name: Optional[str] = None
 
     inputs: List[Input] = list()
     outputs: List[Output] = list()
@@ -174,7 +178,7 @@ class Task(metaclass=TaskMeta):
 
     @classmethod
     def get_command_name(cls) -> str:
-        return f'./{cls.name}.py'
+        return f'./{cls.command_name}.py'
 
     @classmethod
     def get_command(cls, lut: Optional[Dict[str, str]] = None) -> List[Any]:
