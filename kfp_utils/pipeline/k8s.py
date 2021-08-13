@@ -23,13 +23,11 @@ def load_k8s_model(model_cls, data) -> Any:
                 get_k8s_model_cls(value_type),
                 value,
             )
-        elif value_type.startswith('list[V'):
-            value = value or []
+        elif value_type.startswith('list[V') and value:
             sub_type = re.match(r'list\[(.*)\]', value_type).group(1)
             sub_model_cls = get_k8s_model_cls(sub_type)
             return [load_k8s_model(sub_model_cls, x) for x in value]
-        elif value_type.startswith('dict('):
-            value = value or {}
+        elif value_type.startswith('dict(') and value:
             sub_type = re.match(r'dict\([^,]*, (.*)\)', value_type).group(1)
             if sub_type[0] == 'V':
                 sub_model_cls = get_k8s_model_cls(sub_type)
