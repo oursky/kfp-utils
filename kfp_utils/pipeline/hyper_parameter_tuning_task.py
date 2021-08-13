@@ -1,5 +1,7 @@
+import random
+import string
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 from kfp.dsl import ResourceOp
 
@@ -20,6 +22,13 @@ class MissingMetricFilePath(Exception):
 
 class MissingOptimizingMetric(Exception):
     pass
+
+
+HPT_TRIAL_NAME = '${trialParameters.trialName}'
+
+
+def force_number(s: Any) -> str:
+    return f'+{s}'
 
 
 @dataclass
@@ -100,7 +109,7 @@ class HyperParameterTuningTask(TrainerTask):
     max_trial_count: Optional[int] = None
     max_failed_trial_count: Optional[int] = None
 
-    metric_pattern: str = QuotedString('"([^"]+)"\\\\s*:\\\\s*"([^"]+)"')
+    metric_pattern: str = QuotedString('"([^"]+)"\\s*:\\s*"([^"]+)"')
 
     def __new__(cls, **kwargs) -> ResourceOp:
         return cls._to_resource_op(**kwargs)
@@ -108,6 +117,15 @@ class HyperParameterTuningTask(TrainerTask):
     @classmethod
     def get_hyperparameters(cls) -> List[HyperParameter]:
         return [x for x in cls.inputs if isinstance(x, HyperParameter)]
+
+    @classmethod
+    def get_template_variables(cls) -> List[Dict[str, str]]:
+        return [
+            {
+                'name': 'trialName',
+                'reference': '${trialSpec.Name}',
+            }
+        ]
 
     @classmethod
     def get_metric_file_path(cls) -> Input:
@@ -165,13 +183,27 @@ class HyperParameterTuningTask(TrainerTask):
 
     @classmethod
     def _to_resource_op(cls, **kwargs) -> ResourceOp:
+        max_failed_trial_count = kwargs.get(
+            'max_failed_trial_count', cls.max_failed_trial_count
+        )
+
         return ResourceOp(
             name=cls.name,
             k8s_resource=cls._to_resouece_manifest(**kwargs),
             action='create',
             success_condition='status.trialsSucceeded>1,status.completionTime',
-            # failure_condition=f'status.trialsFailed>{cls.max_failed_trial_count}',
+            failure_condition=f'status.trialsFailed>{max_failed_trial_count}',  # noqa
         )
+
+    @classmethod
+    def get_experiment_name(cls) -> str:
+        suffix = ''.join(
+            [
+                random.choice(string.ascii_lowercase + string.digits)
+                for _ in range(6)
+            ]
+        )
+        return f'{cls.name}-{suffix}'
 
     @classmethod
     def _to_resouece_manifest(cls, **kwargs) -> Dict:
@@ -182,24 +214,31 @@ class HyperParameterTuningTask(TrainerTask):
             'apiVersion': 'kubeflow.org/v1beta1',
             'kind': 'Experiment',
             'metadata': {
-                'name': f'{cls.name}-experiment',
+                'name': cls.get_experiment_name(),
             },
             'spec': {
                 **cls.algorithm.to_algorithm_spec(),
                 **cls._inject_settings_to_manifest(
                     'parallelTrialCount',
-                    kwargs.pop(
-                        'parallel_trial_count', cls.parallel_trial_count
+                    force_number(
+                        kwargs.pop(
+                            'parallel_trial_count', cls.parallel_trial_count
+                        )
                     ),
                 ),
                 **cls._inject_settings_to_manifest(
                     'maxTrialCount',
-                    kwargs.pop('max_trial_count', cls.max_trial_count),
+                    force_number(
+                        kwargs.pop('max_trial_count', cls.max_trial_count)
+                    ),
                 ),
                 **cls._inject_settings_to_manifest(
                     'maxFailedTrialCount',
-                    kwargs.pop(
-                        'max_failed_trial_count', cls.max_failed_trial_count
+                    force_number(
+                        kwargs.pop(
+                            'max_failed_trial_count',
+                            cls.max_failed_trial_count,
+                        )
                     ),
                 ),
                 'metricsCollectorSpec': cls.get_metric_collector_spec(kwargs),
@@ -209,10 +248,13 @@ class HyperParameterTuningTask(TrainerTask):
                 ],
                 'trialTemplate': {
                     'primaryContainerName': container_name,
-                    'trialParameters': [
-                        hp.to_trial_parameter()
-                        for hp in cls.get_hyperparameters()
-                    ],
+                    'trialParameters': (
+                        [
+                            hp.to_trial_parameter()
+                            for hp in cls.get_hyperparameters()
+                        ]
+                        + cls.get_template_variables()
+                    ),
                     'trialSpec': cls._to_job_manifest(container_name, kwargs),
                 },
             },
