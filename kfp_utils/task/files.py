@@ -3,7 +3,7 @@ import hashlib
 import os
 import os.path
 import re
-from typing import Callable, Dict, List, Tuple
+from typing import Callable, Dict, List, Optional, Tuple
 
 from smart_open import open
 
@@ -25,6 +25,7 @@ def copy_files_to(
     dest_dir: str,
     verbose: bool = True,
     local_name_mapper: Callable[[str], str] = os.path.basename,
+    cache_dir: Optional[str] = None,
 ) -> Dict[str, str]:
 
     src_dest_map = {
@@ -32,10 +33,12 @@ def copy_files_to(
         for src in files_paths
     }
 
-    return copy_files(src_dest_map, verbose=verbose)
+    return copy_files(src_dest_map, verbose=verbose, cache_dir=cache_dir)
 
 
-def copy_files(src_dest_map: Dict[str, str], verbose=True) -> Dict[str, str]:
+def copy_files(
+    src_dest_map: Dict[str, str], verbose=True, cache_dir: Optional[str] = None
+) -> Dict[str, str]:
     if verbose:
         print("Start copying files...")
     futures = []
@@ -52,7 +55,7 @@ def copy_files(src_dest_map: Dict[str, str], verbose=True) -> Dict[str, str]:
 
                 return wrapped
 
-            future = executor.submit(copy_file, src, dest)
+            future = executor.submit(copy_file, src, dest, cache_dir)
             future.add_done_callback(cb(src))
             futures.append(future)
 
@@ -60,8 +63,14 @@ def copy_files(src_dest_map: Dict[str, str], verbose=True) -> Dict[str, str]:
 
 
 def copy_file(
-    source_file_path: str, destination_file_path: str
+    source_file_path: str,
+    destination_file_path: str,
+    cache_dir: Optional[str] = None,
 ) -> Tuple[str, str]:
+
+    if source_file_path.startswith('gs://') and cache_dir:
+        source_file_path = cache_file(source_file_path, cache_dir=cache_dir)
+
     with open(source_file_path, "rb") as source_file:
         if not destination_file_path.startswith("gs://"):
             os.makedirs(os.path.dirname(destination_file_path), exist_ok=True)
@@ -96,11 +105,15 @@ def upload_local_dir(local_dir, remote_dir):
             executor.submit(copy_file, file, destination_path)
 
 
-def cache_file(url, cache_dir="/tmp/cache"):
-    os.makedirs(cache_dir, exist_ok=True)
+def get_cache_path(url, cache_dir='/tmp/cache'):
     m = hashlib.sha256()
     m.update(url.encode())
-    cache_path = os.path.join(cache_dir, m.hexdigest())
+    return os.path.join(cache_dir, m.hexdigest())
+
+
+def cache_file(url, cache_dir="/tmp/cache"):
+    os.makedirs(cache_dir, exist_ok=True)
+    cache_path = get_cache_path(url, cache_dir)
 
     if os.path.exists(cache_path):
         return cache_path
