@@ -76,12 +76,26 @@ def copy_file(
             os.makedirs(os.path.dirname(destination_file_path), exist_ok=True)
 
         with open(destination_file_path, "wb") as destination_file:
-            destination_file.write(source_file.read())
+            size = 256 * 1024 * 1024
+            while True:
+                buf = source_file.read(size)
+
+                if len(buf) == 0:
+                    break
+
+                destination_file.write(buf)
 
     return source_file_path, destination_file_path
 
 
 def upload_local_dir(local_dir, remote_dir):
+    def cb(dest):
+        def wrapped(future):
+            if future.exception() is not None:
+                print(f"Fail to copy to {dest}.")
+
+        return wrapped
+
     with BoundedThreadPoolExecutor() as executor:
         for file in glob.glob(os.path.join(local_dir, "**"), recursive=True):
 
@@ -102,7 +116,8 @@ def upload_local_dir(local_dir, remote_dir):
                         f"Seems {destination_parent} is not a local path,"
                         "skipped making directory"
                     )
-            executor.submit(copy_file, file, destination_path)
+            future = executor.submit(copy_file, file, destination_path)
+            future.add_done_callback(cb(destination_path))
 
 
 def get_cache_path(url, cache_dir='/tmp/cache'):
