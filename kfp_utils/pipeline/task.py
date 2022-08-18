@@ -77,8 +77,15 @@ class Input(Argument):
             return super().to_command_args(lut=lut)
 
         output = super().to_command_args()
-        output[1] = self.default or lut[self.name]
+        output[1] = self.default_str or lut[self.name]
         return output
+
+    @property
+    def default_str(self) -> Optional[str]:
+        if self.default is not None:
+            return str(self.default)
+
+        return None
 
 
 SPECIAL_OUTPUTS = [

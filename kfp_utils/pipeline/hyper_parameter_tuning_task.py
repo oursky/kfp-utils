@@ -68,7 +68,11 @@ class HyperParameter(Argument, _HyperParameterBase):
     def to_parameter(self) -> Dict:
         return {
             'name': self.name,
-            'parameterType': self.type_naming[self.type],
+            'parameterType': (
+                'categorical'
+                if isinstance(self.range, list)
+                else self.type_naming[self.type]
+            ),
             'feasibleSpace': (
                 {'list': [str(x) for x in self.range]}
                 if isinstance(self.range, list)
@@ -172,7 +176,7 @@ class HyperParameterTuningTask(TrainerTask):
             'goal': optimizing_metric.goal,
             'objectiveMetricName': QuotedString(optimizing_metric.name),
             **cls._inject_settings_to_manifest(
-                'optimizing_metric',
+                'additionalMetricNames',
                 [
                     QuotedString(x.name)
                     for x in cls.metrics
@@ -220,25 +224,19 @@ class HyperParameterTuningTask(TrainerTask):
                 **cls.algorithm.to_algorithm_spec(),
                 **cls._inject_settings_to_manifest(
                     'parallelTrialCount',
-                    force_number(
-                        kwargs.pop(
-                            'parallel_trial_count', cls.parallel_trial_count
-                        )
+                    kwargs.pop(
+                        'parallel_trial_count', cls.parallel_trial_count
                     ),
                 ),
                 **cls._inject_settings_to_manifest(
                     'maxTrialCount',
-                    force_number(
-                        kwargs.pop('max_trial_count', cls.max_trial_count)
-                    ),
+                    kwargs.pop('max_trial_count', cls.max_trial_count),
                 ),
                 **cls._inject_settings_to_manifest(
                     'maxFailedTrialCount',
-                    force_number(
-                        kwargs.pop(
-                            'max_failed_trial_count',
-                            cls.max_failed_trial_count,
-                        )
+                    kwargs.pop(
+                        'max_failed_trial_count',
+                        cls.max_failed_trial_count,
                     ),
                 ),
                 'metricsCollectorSpec': cls.get_metric_collector_spec(kwargs),
