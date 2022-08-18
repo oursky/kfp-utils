@@ -136,6 +136,16 @@ class TaskMeta(type):
             cls.command_name = cls.name
 
 
+@dataclass
+class RetryArgs:
+    # ref: https://github.com/kubeflow/pipelines/blob/d5bc8ddd6250d90b38cff5759e856f73e71e7d03/sdk/python/kfp/dsl/_container_op.py#L1016
+    num_retries: int
+    policy: Optional[str] = None
+    backoff_duration: Optional[str] = None
+    backoff_factor: Optional[float] = None
+    backoff_max_duration: Optional[str] = None
+
+
 class Task(metaclass=TaskMeta):
 
     image: str = TASK_IMAGE_WITH_TAG
@@ -179,6 +189,8 @@ class Task(metaclass=TaskMeta):
     env_from: List[V1EnvFromSource] = (
         get_default_settings('task.envFrom', V1EnvFromSource) or list()
     )
+
+    retry: Optional[RetryArgs] = None
 
     def __new__(cls, *args, **kwargs) -> ContainerOp:
         return cls._to_op_factory()(*args, **kwargs)
@@ -229,6 +241,7 @@ class Task(metaclass=TaskMeta):
             cls._inject_settings_to_container_op(op)
             cls._set_max_cache_staleness_to_container_op(op)
             cls._set_image_pull_policy_to_container_op(op)
+            cls._set_retry_to_container_op(op)
 
             return op
 
@@ -268,3 +281,14 @@ class Task(metaclass=TaskMeta):
     def _set_image_pull_policy_to_container_op(cls, op: ContainerOp):
         if cls.image_pull_policy is not None:
             op.set_image_pull_policy(cls.image_pull_policy)
+
+    @classmethod
+    def _set_retry_to_container_op(cls, op: ContainerOp):
+        if cls.retry is not None:
+            op.set_retry(
+                num_retries=cls.retry.num_retries,
+                policy=cls.retry.policy,
+                backoff_duration=cls.retry.backoff_duration,
+                backoff_factor=cls.retry.backoff_factor,
+                backoff_max_duration=cls.retry.backoff_max_duration,
+            )
