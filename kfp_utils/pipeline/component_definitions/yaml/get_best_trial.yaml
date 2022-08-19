@@ -1,0 +1,24 @@
+name: get-best-trial
+
+inputs:
+- {name: experiment_name, type: String}
+- {name: experiment_suffix, type: String}
+- {name: namespace, type: String, default: kubeflow}
+
+outputs:
+- {name: best_trial_name, type: Data}
+
+implementation:
+  container:
+    image: bitnami/kubectl:latest
+    command:
+    - bash
+    - -c
+    - |
+      mkdir -p "$(dirname "$3")"
+      kubectl -n $2 get experiment/$0-$1 -o=jsonpath='{.status.currentOptimalTrial.bestTrialName}' > "$3"
+    args:
+    - {inputValue: experiment_name}
+    - {inputValue: experiment_suffix}
+    - {inputValue: namespace}
+    - {outputPath: best_trial_name}

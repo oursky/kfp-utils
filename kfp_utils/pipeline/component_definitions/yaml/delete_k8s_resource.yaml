@@ -1,0 +1,19 @@
+name: delete-k8s-resource
+
+inputs:
+- {name: kind, type: String}
+- {name: name, type: String}
+- {name: flags, type: String}
+
+implementation:
+  container:
+    image: bitnami/kubectl:latest
+    command:
+    - bash
+    - -c
+    - |
+      kubectl delete $0 $1 $2
+    args:
+    - {inputValue: kind}
+    - {inputValue: name}
+    - {inputValue: flags}

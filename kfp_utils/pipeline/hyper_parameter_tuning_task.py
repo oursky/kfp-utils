@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional, Union
 from kfp.dsl import ResourceOp
 
 from .k8s import dump_k8s_model
+from .ops import ResourceOpWithCustomDelete
 from .optimization_algorithm import TPE, OptimizationAlgorothm
 from .task import Argument, Input
 from .trainer_task import TrainerTask
@@ -195,7 +196,7 @@ class HyperParameterTuningTask(TrainerTask):
             'max_failed_trial_count', cls.max_failed_trial_count
         )
 
-        return ResourceOp(
+        return ResourceOpWithCustomDelete(
             name=cls.name,
             k8s_resource=cls._to_resouece_manifest(**kwargs),
             action='apply',
