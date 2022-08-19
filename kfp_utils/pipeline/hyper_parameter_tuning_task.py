@@ -27,7 +27,10 @@ class MissingOptimizingMetric(Exception):
 HPT_TRIAL_NAME = '${trialParameters.trialName}'
 
 
-def force_number(s: Any) -> str:
+def force_number(s: Any) -> Any:
+    if isinstance(s, float) or isinstance(s, int):
+        return s
+
     return f'+{s}'
 
 
@@ -115,7 +118,8 @@ class HyperParameterTuningTask(TrainerTask):
 
     metric_pattern: str = QuotedString('"([^"]+)"\\s*:\\s*"([^"]+)"')
 
-    def __new__(cls, **kwargs) -> ResourceOp:
+    def __new__(cls, experiment_suffix: str, **kwargs) -> ResourceOp:
+        cls.experiment_suffix = experiment_suffix
         return cls._to_resource_op(**kwargs)
 
     @classmethod
@@ -194,20 +198,14 @@ class HyperParameterTuningTask(TrainerTask):
         return ResourceOp(
             name=cls.name,
             k8s_resource=cls._to_resouece_manifest(**kwargs),
-            action='create',
-            success_condition='status.trialsSucceeded>1,status.completionTime',
+            action='apply',
+            success_condition='status.trialsSucceeded>0,status.completionTime',
             failure_condition=f'status.trialsFailed>{max_failed_trial_count}',  # noqa
         )
 
     @classmethod
     def get_experiment_name(cls) -> str:
-        suffix = ''.join(
-            [
-                random.choice(string.ascii_lowercase + string.digits)
-                for _ in range(6)
-            ]
-        )
-        return f'{cls.name}-{suffix}'
+        return f'{cls.name}-{cls.experiment_suffix}'
 
     @classmethod
     def _to_resouece_manifest(cls, **kwargs) -> Dict:
@@ -224,19 +222,25 @@ class HyperParameterTuningTask(TrainerTask):
                 **cls.algorithm.to_algorithm_spec(),
                 **cls._inject_settings_to_manifest(
                     'parallelTrialCount',
-                    kwargs.pop(
-                        'parallel_trial_count', cls.parallel_trial_count
+                    force_number(
+                        kwargs.pop(
+                            'parallel_trial_count', cls.parallel_trial_count
+                        )
                     ),
                 ),
                 **cls._inject_settings_to_manifest(
                     'maxTrialCount',
-                    kwargs.pop('max_trial_count', cls.max_trial_count),
+                    force_number(
+                        kwargs.pop('max_trial_count', cls.max_trial_count)
+                    ),
                 ),
                 **cls._inject_settings_to_manifest(
                     'maxFailedTrialCount',
-                    kwargs.pop(
-                        'max_failed_trial_count',
-                        cls.max_failed_trial_count,
+                    force_number(
+                        kwargs.pop(
+                            'max_failed_trial_count',
+                            cls.max_failed_trial_count,
+                        )
                     ),
                 ),
                 'metricsCollectorSpec': cls.get_metric_collector_spec(kwargs),
