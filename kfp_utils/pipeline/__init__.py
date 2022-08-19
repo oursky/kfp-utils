@@ -6,7 +6,7 @@ from .hyper_parameter_tuning_task import (
     OptimizingMetric,
     ParameterRange,
 )
-from .task import Flag, Input, Output, Task, RetryArgs
+from .task import Flag, Input, Output, RetryArgs, Task
 from .trainer_task import TrainerTask
 
 __all__ = [
@@ -20,4 +20,6 @@ __all__ = [
     'MetricFilePath',
     'OptimizingMetric',
     'TrainerTask',
+    'ParameterRange',
+    'RetryArgs',
 ]

@@ -138,7 +138,7 @@ class TaskMeta(type):
 
 @dataclass
 class RetryArgs:
-    # ref: https://github.com/kubeflow/pipelines/blob/d5bc8ddd6250d90b38cff5759e856f73e71e7d03/sdk/python/kfp/dsl/_container_op.py#L1016
+    # ref: https://github.com/kubeflow/pipelines/blob/d5bc8ddd6250d90b38cff5759e856f73e71e7d03/sdk/python/kfp/dsl/_container_op.py#L1016 #noqa
     num_retries: int
     policy: Optional[str] = None
     backoff_duration: Optional[str] = None

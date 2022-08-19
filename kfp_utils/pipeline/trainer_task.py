@@ -1,4 +1,4 @@
-from typing import Callable, Dict, List, Optional
+from typing import Dict, List
 
 from kfp_utils.pipeline.config import get_default_settings
 from kubernetes.client.models import (
