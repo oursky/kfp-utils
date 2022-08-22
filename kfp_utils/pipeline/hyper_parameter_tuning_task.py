@@ -46,7 +46,7 @@ class ParameterRange:
         }
 
         if self.step is not None:
-            output['step'] = self.step
+            output['step'] = str(self.step)
 
         return output
 
