@@ -48,7 +48,7 @@ class Argument:
             f'--{self.name}',
             {self.command_arg_type: self.name}
             if lut is None
-            else lut[self.name],
+            else str(lut[self.name]),
         ]
 
 
@@ -77,7 +77,7 @@ class Input(Argument):
             return super().to_command_args(lut=lut)
 
         output = super().to_command_args()
-        output[1] = self.default_str or lut[self.name]
+        output[1] = self.default_str or str(lut[self.name])
         return output
 
     @property
