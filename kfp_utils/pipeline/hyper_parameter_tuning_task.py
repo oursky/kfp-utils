@@ -1,7 +1,9 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Union
 
 from kfp.dsl import ResourceOp
+from kfp_utils.pipeline.config import get_default_settings
+from kubernetes.client.models import V1Affinity, V1Toleration
 
 from .k8s import dump_k8s_model
 from .ops import ResourceOpWithCustomDelete
@@ -107,7 +109,30 @@ class OptimizingMetric(Metric):
     is_maximize: bool = True
 
 
+@dataclass
+class ResourceMonitorSetting:
+    affinity: Optional[V1Affinity] = field(
+        default_factory=lambda: (
+            get_default_settings('hptResourceMonitor.affinity', V1Affinity)
+            or None
+        )
+    )
+    node_selectors: Dict[str, str] = field(
+        default_factory=lambda: (
+            get_default_settings('hptResourceMonitor.nodeSelector') or dict()
+        )
+    )
+    tolerations: List[V1Toleration] = field(
+        default_factory=lambda: (
+            get_default_settings('task.tolerations', V1Toleration) or list()
+        )
+    )
+
+
 class HyperParameterTuningTask(TrainerTask):
+
+    resource_monitor_setting = ResourceMonitorSetting()
+
     algorithm: OptimizationAlgorothm = TPE()
     metrics: List[Metric] = list()
 
@@ -189,18 +214,45 @@ class HyperParameterTuningTask(TrainerTask):
         }
 
     @classmethod
+    def _inject_settings_to_resource_op(cls, op: ResourceOp):
+        injections = [
+            (cls.resource_monitor_setting.affinity, op.add_affinity),
+            (
+                cls.resource_monitor_setting.node_selectors,
+                op.add_node_selector_constraint,
+            ),
+            (cls.resource_monitor_setting.tolerations, op.add_toleration),
+        ]
+
+        for attr, injector in injections:
+            if isinstance(attr, dict):
+                for k, v in attr.items():
+                    injector(k, v)
+            elif isinstance(attr, list):
+                for x in attr:
+                    injector(x)
+            elif isinstance(attr, V1Affinity):
+                injector(attr)
+            elif attr is not None:
+                raise Exception(f'Unexpected attribute type: {type(attr)}')
+
+    @classmethod
     def _to_resource_op(cls, **kwargs) -> ResourceOp:
         max_failed_trial_count = kwargs.get(
             'max_failed_trial_count', cls.max_failed_trial_count
         )
 
-        return ResourceOpWithCustomDelete(
+        resource_op = ResourceOpWithCustomDelete(
             name=cls.name,
             k8s_resource=cls._to_resouece_manifest(**kwargs),
             action='apply',
             success_condition='status.trialsSucceeded>0,status.completionTime',
             failure_condition=f'status.trialsFailed>{max_failed_trial_count}',  # noqa
         )
+
+        cls._inject_settings_to_resource_op(resource_op)
+
+        return resource_op
 
     @classmethod
     def get_experiment_name(cls) -> str:

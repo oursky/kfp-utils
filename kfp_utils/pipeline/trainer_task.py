@@ -1,7 +1,8 @@
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from kfp_utils.pipeline.config import get_default_settings
 from kubernetes.client.models import (
+    V1Affinity,
     V1EnvFromSource,
     V1EnvVar,
     V1Toleration,
@@ -15,6 +16,12 @@ from .task import Task
 
 class TrainerTask(Task):
     image: str = TRAINER_TASK_IMAGE_WITH_TAG
+
+    affinity: Optional[V1Affinity] = (
+        get_default_settings('trainerTask.affinity')
+        or get_default_settings('task.affinity')
+        or None
+    )
 
     node_selectors: Dict[str, str] = (
         get_default_settings('trainerTask.nodeSelector')

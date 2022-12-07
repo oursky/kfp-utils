@@ -3,7 +3,6 @@ import re
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional
 
-import kfp
 import yaml
 from kfp.dsl import ContainerOp
 from kfp_utils.pipeline.config import (
@@ -13,12 +12,15 @@ from kfp_utils.pipeline.config import (
     get_default_settings,
 )
 from kubernetes.client.models import (
+    V1Affinity,
     V1EnvFromSource,
     V1EnvVar,
     V1Toleration,
     V1Volume,
     V1VolumeMount,
 )
+
+import kfp
 
 
 @dataclass
@@ -162,6 +164,9 @@ class Task(metaclass=TaskMeta):
     max_cache_staleness: Optional[str] = DEFAULT_MAX_PIPELINE_CACHE_STALENESS
     image_pull_policy: Optional[str] = None
 
+    affinity: Optional[V1Affinity] = (
+        get_default_settings('task.affinity', V1Affinity) or None
+    )
     node_selectors: Dict[str, str] = (
         get_default_settings('task.nodeSelector') or dict()
     )
@@ -250,6 +255,7 @@ class Task(metaclass=TaskMeta):
     @classmethod
     def _inject_settings_to_container_op(cls, op: ContainerOp):
         injections = [
+            (cls.affinity, op.add_affinity),
             (cls.node_selectors, op.add_node_selector_constraint),
             (cls.resource_limits, op.add_resource_limit),
             (cls.resource_requests, op.add_resource_request),
@@ -268,7 +274,9 @@ class Task(metaclass=TaskMeta):
             elif isinstance(attr, list):
                 for x in attr:
                     injector(x)
-            else:
+            elif isinstance(attr, V1Affinity):
+                injector(attr)
+            elif attr is not None:
                 raise Exception(f'Unexpected attribute type: {type(attr)}')
 
     @classmethod
