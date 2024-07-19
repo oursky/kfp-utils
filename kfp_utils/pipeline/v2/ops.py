@@ -15,6 +15,9 @@ from kubernetes.client.models import (
 from .component_definitions.generate_random_string import (
     generate_random_string,
 )
+from .component_definitions.read_artifact import (
+    read_artifact
+)
 from .add_k8s_attribute import add_volumes_and_mounts
 
 class PythonFunctionOp:
@@ -72,6 +75,9 @@ class RawContainerOp:
     def _load_component_definition(cls) -> str:
         with open(cls.component_defintion_path, 'r') as fp:
             return fp.read()
+
+class ReadArtifactOp(PythonFunctionOp):
+    function = read_artifact
 
 class GenerateRandomStringOp(PythonFunctionOp):
     function = generate_random_string
