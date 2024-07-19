@@ -1,0 +1,34 @@
+# ref: https://github.com/kubeflow/kfp-tekton/blob/0b894195443ca225652720a3342517dfaa304c95/tekton-catalog/kubectl-wrapper/deploy/kubectl-deploy.yaml
+name: resource-op
+
+inputs:
+# Action on the resource
+- {name: action, type: String}
+# Content of the resource to deploy
+- {name: manifest, type: String}
+# Merge strategy when using action  patch
+- {name: merge_strategy, type: String, default: strategic}
+# A label selector express to decide if the action on resource is success.
+- {name: success_condition, type: String, default: ''}
+# A label selector express to decide if the action on resource is failure.
+- {name: failure_condition, type: String, default: ''}
+# An express to retrieval data from resource. 
+# Extracted from fields of the resource, only support jsonpath. 
+# Should define as a yaml array.
+- {name: output, type: String, default: ' '}
+# Enable set owner reference for created resource.
+- {name: set_ownerreference, type: Bool, default: false}
+
+implementation:
+  container:
+    image: aipipeline/kubeclient:0.9.0
+    command: [
+      kubeclient,
+      --action, {inputValue: action},
+      --manifest, {inputValue: manifest},
+      --merge-strategy, {inputValue: merge_strategy},
+      --success-condition, {inputValue: success_condition},
+      --failure-condition, {inputValue: failure_condition},
+      --output, {inputValue: output},
+      --set-ownerreference, {inputValue: set_ownerreference},
+    ]
