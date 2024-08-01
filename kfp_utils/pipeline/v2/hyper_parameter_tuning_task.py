@@ -233,7 +233,7 @@ class HyperParameterTuningTask(TrainerTask):
         cls, 
         op: ResourceOp.ResourceOpPipelineTask
     ) -> ResourceOp.ResourceOpPipelineTask:
-        if cls.affinity is not None:
+        if cls.resource_monitor_setting.affinity is not None:
             op = add_affinity(
                 task=op,
                 affinity=cls.resource_monitor_setting.affinity
