@@ -5,6 +5,7 @@ from kfp.dsl import ResourceOp
 from kfp_utils.pipeline.config import get_default_settings
 from kubernetes.client.models import V1Affinity, V1Toleration
 
+from .config import DEFAULT_TUNNING_TASK_SERVICE_ACCOUNT
 from .k8s import dump_k8s_model
 from .ops import ResourceOpWithCustomDelete
 from .optimization_algorithm import TPE, OptimizationAlgorothm
@@ -141,6 +142,8 @@ class HyperParameterTuningTask(TrainerTask):
     max_failed_trial_count: Optional[int] = None
 
     metric_pattern: str = QuotedString('"([^"]+)"\\s*:\\s*"([^"]+)"')
+
+    service_account_name: str = DEFAULT_TUNNING_TASK_SERVICE_ACCOUNT
 
     def __new__(cls, experiment_suffix: str, **kwargs) -> ResourceOp:
         cls.experiment_suffix = experiment_suffix
@@ -351,6 +354,7 @@ class HyperParameterTuningTask(TrainerTask):
                                 },
                             }
                         ],
+                        'serviceAccountName': cls.service_account_name,
                         'restartPolicy': 'Never',
                         **cls._inject_settings_to_manifest(
                             'nodeSelector', cls.node_selectors

@@ -9,7 +9,10 @@ from kfp.kubernetes import add_toleration, add_node_selector
 from kubernetes.client.models import V1Affinity, V1Toleration
 
 from .add_k8s_attribute import add_affinity
-from .config import get_default_settings
+from .config import (
+    DEFAULT_TUNNING_TASK_SERVICE_ACCOUNT,
+    get_default_settings,
+)
 from .k8s import dump_k8s_model
 from .ops import ResourceOp
 from .optimization_algorithm import TPE, OptimizationAlgorothm
@@ -152,6 +155,8 @@ class HyperParameterTuningTask(TrainerTask):
     max_failed_trial_count: Optional[int] = None
 
     metric_pattern: str = QuotedString('"([^"]+)"\\s*:\\s*"([^"]+)"')
+    
+    service_account_name: str = DEFAULT_TUNNING_TASK_SERVICE_ACCOUNT
 
     def __new__(
         cls, 
@@ -396,6 +401,7 @@ class HyperParameterTuningTask(TrainerTask):
                                 },
                             }
                         ],
+                        'serviceAccountName': cls.service_account_name,
                         'restartPolicy': 'Never',
                         **cls._inject_settings_to_manifest(
                             'nodeSelector', cls.node_selectors
